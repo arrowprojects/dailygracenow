@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import cloud from 'd3-cloud';
 import type { Book, Chapter, VerseWithRef, RandomVerse } from '@/lib/database';
 
-type View = 'hero' | 'reader';
+type View = 'hero' | 'reader' | 'dict-kjv' | 'dict-modern' | 'cloud-kjv' | 'cloud-modern';
 type ViewMode = 'kjv' | 'modern' | 'both';
+type Testament = 'OLD' | 'NEW';
 
 interface SearchResult {
   id: number;
@@ -44,7 +46,7 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentChapterIndex = chapters.findIndex(c => c.id === selectedChapterId);
-  const currentChapter = chapters[currentChapterIndex] ?? null;
+
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -182,9 +184,45 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
           >
             Open Bible
           </button>
+
+          {/* Dictionary & Word Cloud buttons */}
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button
+              className="btn btn-outline px-4 py-2 text-sm text-amber-400 border-amber-400/30 hover:border-amber-400/60 hover:bg-amber-400/5"
+              onClick={() => setView('dict-kjv')}
+            >
+              King James Dictionary
+            </button>
+            <button
+              className="btn btn-outline px-4 py-2 text-sm text-violet-400 border-violet-400/30 hover:border-violet-400/60 hover:bg-violet-400/5"
+              onClick={() => setView('dict-modern')}
+            >
+              Modern Dictionary
+            </button>
+            <button
+              className="btn btn-outline px-4 py-2 text-sm text-amber-400 border-amber-400/30 hover:border-amber-400/60 hover:bg-amber-400/5"
+              onClick={() => setView('cloud-kjv')}
+            >
+              KJV Word Cloud
+            </button>
+            <button
+              className="btn btn-outline px-4 py-2 text-sm text-violet-400 border-violet-400/30 hover:border-violet-400/60 hover:bg-violet-400/5"
+              onClick={() => setView('cloud-modern')}
+            >
+              Modern Word Cloud
+            </button>
+          </div>
         </div>
       </div>
     );
+  }
+
+  if (view === 'dict-kjv' || view === 'dict-modern') {
+    return <DictionaryView label={view === 'dict-kjv' ? 'King James Dictionary' : 'Modern Dictionary'} onBack={() => setView('hero')} />;
+  }
+
+  if (view === 'cloud-kjv' || view === 'cloud-modern') {
+    return <WordCloudView label={view === 'cloud-kjv' ? 'KJV Word Cloud' : 'Modern Word Cloud'} onBack={() => setView('hero')} />;
   }
 
   return (
@@ -415,6 +453,250 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+// ── Dictionary View ───────────────────────────────────────────────────────────
+
+function DictionaryView({ label, onBack }: { label: string; onBack: () => void }) {
+  const [testament, setTestament] = useState<Testament>('OLD');
+  const [words, setWords]         = useState<{ dict_id: number; word: string }[]>([]);
+  const [total, setTotal]         = useState(0);
+  const [page, setPage]           = useState(1);
+  const [q, setQ]                 = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [fontSize, setFontSize]   = useState(14);
+  const LIMIT = 100;
+
+  const load = useCallback((t: Testament, p: number, search: string) => {
+    setLoading(true);
+    const params = new URLSearchParams({ testament: t, page: String(p), limit: String(LIMIT) });
+    if (search) params.set('q', search);
+    fetch(`/api/dictionary?${params}`)
+      .then(r => r.json())
+      .then(d => { if (d.success) { setWords(d.words); setTotal(d.total); } })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(testament, page, q); }, [testament, page, q, load]);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function onSearch(val: string) {
+    setQ(val); setPage(1);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => load(testament, 1, val), 300);
+  }
+
+  const totalPages = Math.ceil(total / LIMIT);
+
+  return (
+    <div className="min-h-screen bg-[#0d0d0d] flex flex-col">
+      {/* Header */}
+      <div className="border-b border-[#1e1e1e] px-6 py-3 flex items-center gap-4 bg-[#0a0a0a]">
+        <button onClick={onBack} className="text-[#555] hover:text-[#aaa] text-sm transition-colors">← Back</button>
+        <h1 className="text-sm font-semibold text-[#e5e5e5]">{label}</h1>
+        {/* Testament toggle */}
+        <div className="flex items-center gap-0.5 bg-[#141414] border border-[#2a2a2a] rounded p-0.5 ml-2">
+          {(['OLD', 'NEW'] as Testament[]).map(t => (
+            <button key={t} onClick={() => { setTestament(t); setPage(1); }}
+              className={`text-[10px] px-3 py-1 rounded transition-colors ${testament === t ? 'bg-amber-600 text-white' : 'text-[#666] hover:text-[#aaa]'}`}>
+              {t === 'OLD' ? 'Old Testament' : 'New Testament'}
+            </button>
+          ))}
+        </div>
+        {/* Search */}
+        <input value={q} onChange={e => onSearch(e.target.value)} placeholder="Search words…"
+          className="bg-[#141414] border border-[#2a2a2a] rounded text-xs text-[#ccc] placeholder-[#444] px-3 py-1.5 focus:outline-none focus:border-violet-500/60 w-48" />
+        <div className="ml-auto flex items-center gap-1">
+          <button className="btn btn-ghost text-xs w-6 h-6 flex items-center justify-center disabled:opacity-30"
+            disabled={fontSize <= 10} onClick={() => setFontSize(s => Math.max(10, s - 2))} title="Decrease font size">A−</button>
+          <button className="btn btn-ghost text-xs w-6 h-6 flex items-center justify-center disabled:opacity-30"
+            disabled={fontSize >= 28} onClick={() => setFontSize(s => Math.min(28, s + 2))} title="Increase font size">A+</button>
+          <span className="text-xs text-[#555] ml-2">{total.toLocaleString()} words</span>
+        </div>
+      </div>
+
+      {/* Word list */}
+      <div className="flex-1 px-6 py-4 overflow-y-auto">
+        {loading ? (
+          <p className="text-[#555] text-sm text-center py-12">Loading…</p>
+        ) : (
+          <ul className="divide-y divide-[#161616]">
+            {words.map(w => (
+              <li key={w.dict_id} className="py-1.5 font-mono text-[#bbb] hover:text-[#e5e5e5] transition-colors" style={{ fontSize }}>
+                {w.word}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="border-t border-[#1e1e1e] px-6 py-3 flex items-center justify-between bg-[#0a0a0a]">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1 || loading}
+            className="btn btn-ghost text-xs disabled:opacity-30">← Prev</button>
+          <span className="text-xs text-[#555]">Page {page} of {totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages || loading}
+            className="btn btn-ghost text-xs disabled:opacity-30">Next →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Word Cloud View ───────────────────────────────────────────────────────────
+
+type CloudWord = { text: string; count: number; x?: number; y?: number; rotate?: number; size?: number };
+
+function WordCloudView({ label, onBack }: { label: string; onBack: () => void }) {
+  const [testament, setTestament]   = useState<Testament>('OLD');
+  const [words, setWords]           = useState<{ word: string; count: number }[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [scaleFactor, setScale]     = useState(1.0);
+  const [mode, setMode]             = useState<'text' | 'cloud'>('cloud');
+  const [laid, setLaid]             = useState<CloudWord[]>([]);
+  const [svgSize, setSvgSize]       = useState({ w: 900, h: 600 });
+  const containerRef                = useRef<HTMLDivElement>(null);
+
+  const load = useCallback((t: Testament) => {
+    setLoading(true);
+    fetch(`/api/wordcloud?testament=${t}&limit=300`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setWords(d.words); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(testament); }, [testament, load]);
+
+  // measure container for SVG dimensions
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      setSvgSize({ w: Math.max(400, width), h: Math.max(300, height) });
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const maxCount = words[0]?.count ?? 1;
+  const minCount = words[words.length - 1]?.count ?? 1;
+
+  // log scale font size
+  function calcSize(count: number, min = 10, max = 52) {
+    if (maxCount === minCount) return ((min + max) / 2) * scaleFactor;
+    const ratio = Math.log(count - minCount + 1) / Math.log(maxCount - minCount + 1);
+    return Math.round((min + ratio * (max - min)) * scaleFactor);
+  }
+
+  function wordColor(count: number) {
+    const ratio = Math.log(count - minCount + 1) / Math.log(Math.max(2, maxCount - minCount + 1));
+    if (ratio > 0.75) return '#f59e0b';
+    if (ratio > 0.5)  return '#a78bfa';
+    if (ratio > 0.25) return '#60a5fa';
+    return '#4b5563';
+  }
+
+  // run d3-cloud layout when words / svgSize / scaleFactor change
+  useEffect(() => {
+    if (mode !== 'cloud' || words.length === 0) return;
+    const input: CloudWord[] = words.map(w => ({ text: w.word, count: w.count }));
+    cloud<CloudWord>()
+      .size([svgSize.w, svgSize.h])
+      .words(input)
+      .padding(4)
+      .rotate(() => (Math.random() > 0.8 ? 90 : 0))
+      .font('sans-serif')
+      .fontSize(d => calcSize(d.count ?? 1))
+      .on('end', (output) => setLaid(output))
+      .start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [words, svgSize, scaleFactor, mode]);
+
+  const sorted = useMemo(() => [...words].sort((a, b) => a.word.localeCompare(b.word)), [words]);
+
+  const legend = (
+    <span className="text-[10px] text-[#555] flex items-center gap-3">
+      <span><span className="text-amber-400">■</span> very common</span>
+      <span><span className="text-violet-400">■</span> common</span>
+      <span><span className="text-blue-400">■</span> moderate</span>
+      <span><span className="text-[#4b5563]">■</span> rare</span>
+    </span>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#0d0d0d] flex flex-col">
+      {/* Header */}
+      <div className="border-b border-[#1e1e1e] px-6 py-3 flex items-center gap-4 bg-[#0a0a0a] flex-wrap">
+        <button onClick={onBack} className="text-[#555] hover:text-[#aaa] text-sm transition-colors">← Back</button>
+        <h1 className="text-sm font-semibold text-[#e5e5e5]">{label}</h1>
+
+        {/* Testament toggle */}
+        <div className="flex items-center gap-0.5 bg-[#141414] border border-[#2a2a2a] rounded p-0.5">
+          {(['OLD', 'NEW'] as Testament[]).map(t => (
+            <button key={t} onClick={() => setTestament(t)}
+              className={`text-[10px] px-3 py-1 rounded transition-colors ${testament === t ? 'bg-amber-600 text-white' : 'text-[#666] hover:text-[#aaa]'}`}>
+              {t === 'OLD' ? 'Old Testament' : 'New Testament'}
+            </button>
+          ))}
+        </div>
+
+        {/* Mode toggle */}
+        <div className="flex items-center gap-0.5 bg-[#141414] border border-[#2a2a2a] rounded p-0.5">
+          {(['cloud', 'text'] as const).map(m => (
+            <button key={m} onClick={() => setMode(m)}
+              className={`text-[10px] px-3 py-1 rounded transition-colors ${mode === m ? 'bg-violet-700 text-white' : 'text-[#666] hover:text-[#aaa]'}`}>
+              {m === 'cloud' ? '☁ Cloud' : '≡ Text'}
+            </button>
+          ))}
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button className="btn btn-ghost text-xs w-6 h-6 flex items-center justify-center disabled:opacity-30"
+            disabled={scaleFactor <= 0.4} onClick={() => setScale(s => Math.round((s - 0.2) * 10) / 10)} title="Decrease scale">A−</button>
+          <button className="btn btn-ghost text-xs w-6 h-6 flex items-center justify-center disabled:opacity-30"
+            disabled={scaleFactor >= 3.0} onClick={() => setScale(s => Math.round((s + 0.2) * 10) / 10)} title="Increase scale">A+</button>
+          <span className="ml-3">{legend}</span>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div ref={containerRef} className="flex-1 overflow-hidden relative">
+        {loading ? (
+          <p className="text-[#555] text-sm text-center py-12">Loading…</p>
+        ) : mode === 'cloud' ? (
+          // ── d3-cloud SVG layout ──
+          <svg width={svgSize.w} height={svgSize.h} className="w-full h-full">
+            <g transform={`translate(${svgSize.w / 2},${svgSize.h / 2})`}>
+              {laid.map(w => (
+                <text key={w.text}
+                  textAnchor="middle"
+                  transform={`translate(${w.x ?? 0},${w.y ?? 0}) rotate(${w.rotate ?? 0})`}
+                  style={{ fontSize: w.size, fill: wordColor(w.count), fontFamily: 'sans-serif', cursor: 'default' }}
+                  className="transition-opacity hover:opacity-60">
+                  <title>{w.text}: {w.count.toLocaleString()} occurrences</title>
+                  {w.text}
+                </text>
+              ))}
+            </g>
+          </svg>
+        ) : (
+          // ── text list (log scale, alphabetical) ──
+          <div className="h-full overflow-y-auto px-8 py-8">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 items-baseline justify-center">
+              {sorted.map(w => (
+                <span key={w.word} title={`${w.word}: ${w.count.toLocaleString()} occurrences`}
+                  style={{ fontSize: calcSize(w.count), color: wordColor(w.count), lineHeight: 1.3 }}
+                  className="cursor-default hover:opacity-70 font-medium transition-opacity">
+                  {w.word}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
