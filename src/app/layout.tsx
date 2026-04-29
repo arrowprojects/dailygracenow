@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Daily Jesus',
+  title: 'Daily Grace Now',
   description: 'A beautiful Bible reader',
 };
 

@@ -165,7 +165,7 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
     return (
       <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-6">
         <div className="max-w-2xl w-full text-center space-y-10">
-          <h1 className="text-4xl font-bold text-violet-400 tracking-tight">Daily Jesus</h1>
+          <h1 className="text-4xl font-bold text-violet-400 tracking-tight">Daily Grace Now</h1>
           {heroVerse ? (
             <blockquote className="space-y-4">
               <p className="text-xl text-[#e5e5e5] leading-relaxed italic">
@@ -187,30 +187,14 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
 
           {/* Dictionary & Word Cloud buttons */}
           <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              className="btn btn-outline px-4 py-2 text-sm text-amber-400 border-amber-400/30 hover:border-amber-400/60 hover:bg-amber-400/5"
-              onClick={() => setView('dict-kjv')}
-            >
-              King James Dictionary
-            </button>
-            <button
-              className="btn btn-outline px-4 py-2 text-sm text-violet-400 border-violet-400/30 hover:border-violet-400/60 hover:bg-violet-400/5"
-              onClick={() => setView('dict-modern')}
-            >
-              Modern Dictionary
-            </button>
-            <button
-              className="btn btn-outline px-4 py-2 text-sm text-amber-400 border-amber-400/30 hover:border-amber-400/60 hover:bg-amber-400/5"
-              onClick={() => setView('cloud-kjv')}
-            >
-              KJV Word Cloud
-            </button>
-            <button
-              className="btn btn-outline px-4 py-2 text-sm text-violet-400 border-violet-400/30 hover:border-violet-400/60 hover:bg-violet-400/5"
-              onClick={() => setView('cloud-modern')}
-            >
-              Modern Word Cloud
-            </button>
+            <button className="btn btn-outline px-4 py-2 text-sm text-amber-400 border-amber-400/30 hover:border-amber-400/60 hover:bg-amber-400/5"
+              onClick={() => setView('dict-kjv')}>KJV Dictionary</button>
+            <button className="btn btn-outline px-4 py-2 text-sm text-violet-400 border-violet-400/30 hover:border-violet-400/60 hover:bg-violet-400/5"
+              onClick={() => setView('dict-modern')}>Modern Dictionary</button>
+            <button className="btn btn-outline px-4 py-2 text-sm text-amber-400 border-amber-400/30 hover:border-amber-400/60 hover:bg-amber-400/5"
+              onClick={() => setView('cloud-kjv')}>KJV Word Cloud</button>
+            <button className="btn btn-outline px-4 py-2 text-sm text-violet-400 border-violet-400/30 hover:border-violet-400/60 hover:bg-violet-400/5"
+              onClick={() => setView('cloud-modern')}>Modern Word Cloud</button>
           </div>
         </div>
       </div>
@@ -218,11 +202,11 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
   }
 
   if (view === 'dict-kjv' || view === 'dict-modern') {
-    return <DictionaryView label={view === 'dict-kjv' ? 'King James Dictionary' : 'Modern Dictionary'} onBack={() => setView('hero')} />;
+    return <DictionaryView label={view === 'dict-kjv' ? 'KJV Dictionary' : 'Modern Dictionary'} version={view === 'dict-kjv' ? 'kjv' : 'modern'} onBack={() => setView('hero')} />;
   }
 
   if (view === 'cloud-kjv' || view === 'cloud-modern') {
-    return <WordCloudView label={view === 'cloud-kjv' ? 'KJV Word Cloud' : 'Modern Word Cloud'} onBack={() => setView('hero')} />;
+    return <WordCloudView label={view === 'cloud-kjv' ? 'KJV Word Cloud' : 'Modern Word Cloud'} version={view === 'cloud-kjv' ? 'kjv' : 'modern'} onBack={() => setView('hero')} />;
   }
 
   return (
@@ -230,7 +214,7 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
       {/* Sidebar */}
       <aside className="w-56 flex-shrink-0 bg-[#0a0a0a] border-r border-[#1e1e1e] flex flex-col overflow-hidden">
         <div className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between">
-          <span className="text-xs font-semibold text-violet-400 uppercase tracking-widest">Daily Jesus</span>
+          <span className="text-xs font-semibold text-violet-400 uppercase tracking-widest">Daily Grace Now</span>
           <button
             className="text-[#555] hover:text-[#aaa] transition-colors text-xs"
             title="Back to home"
@@ -459,33 +443,75 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
 
 // ── Dictionary View ───────────────────────────────────────────────────────────
 
-function DictionaryView({ label, onBack }: { label: string; onBack: () => void }) {
+type WordType = 'all' | 'common' | 'person' | 'place' | 'tribe' | 'title' | 'thing' | 'not_in_kjv';
+
+interface DictWord {
+  dict_id: number;
+  word: string;
+  word_type: string;
+  definition: string | null;
+}
+
+const TYPE_META: Record<string, { label: string; color: string; dot: string }> = {
+  common:     { label: 'Common',    color: 'text-[#888] bg-[#1e1e1e] border-[#2a2a2a]',            dot: 'bg-[#666]' },
+  person:     { label: 'Person',    color: 'text-violet-300 bg-violet-900/30 border-violet-700/40', dot: 'bg-violet-400' },
+  place:      { label: 'Place',     color: 'text-sky-300 bg-sky-900/30 border-sky-700/40',          dot: 'bg-sky-400' },
+  tribe:      { label: 'Tribe',     color: 'text-emerald-300 bg-emerald-900/30 border-emerald-700/40', dot: 'bg-emerald-400' },
+  title:      { label: 'Title',     color: 'text-amber-300 bg-amber-900/30 border-amber-700/40',   dot: 'bg-amber-400' },
+  thing:      { label: 'Thing',     color: 'text-orange-300 bg-orange-900/30 border-orange-700/40', dot: 'bg-orange-400' },
+  not_in_kjv: { label: 'Not in KJV', color: 'text-red-300 bg-red-900/20 border-red-700/30',        dot: 'bg-red-400' },
+};
+
+const TYPE_FILTERS: { key: WordType; label: string }[] = [
+  { key: 'all',       label: 'All' },
+  { key: 'common',    label: 'Common' },
+  { key: 'person',    label: 'People' },
+  { key: 'place',     label: 'Places' },
+  { key: 'tribe',     label: 'Tribes' },
+  { key: 'title',     label: 'Titles' },
+  { key: 'thing',     label: 'Things' },
+  { key: 'not_in_kjv', label: 'Not KJV' },
+];
+
+function TypeBadge({ type }: { type: string }) {
+  const meta = TYPE_META[type];
+  if (!meta) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 ${meta.color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${meta.dot}`} />
+      {meta.label}
+    </span>
+  );
+}
+
+function DictionaryView({ label, version, onBack }: { label: string; version: 'kjv' | 'modern'; onBack: () => void }) {
   const [testament, setTestament] = useState<Testament>('OLD');
-  const [words, setWords]         = useState<{ dict_id: number; word: string }[]>([]);
+  const [words, setWords]         = useState<DictWord[]>([]);
   const [total, setTotal]         = useState(0);
   const [page, setPage]           = useState(1);
   const [q, setQ]                 = useState('');
+  const [typeFilter, setTypeFilter] = useState<WordType>('all');
   const [loading, setLoading]     = useState(false);
-  const [fontSize, setFontSize]   = useState(14);
   const LIMIT = 100;
 
-  const load = useCallback((t: Testament, p: number, search: string) => {
+  const load = useCallback((t: Testament, p: number, search: string, type: WordType) => {
     setLoading(true);
-    const params = new URLSearchParams({ testament: t, page: String(p), limit: String(LIMIT) });
+    const params = new URLSearchParams({ version, testament: t, page: String(p), limit: String(LIMIT) });
     if (search) params.set('q', search);
+    if (type !== 'all') params.set('type', type);
     fetch(`/api/dictionary?${params}`)
       .then(r => r.json())
       .then(d => { if (d.success) { setWords(d.words); setTotal(d.total); } })
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(testament, page, q); }, [testament, page, q, load]);
+  useEffect(() => { load(testament, page, q, typeFilter); }, [testament, page, q, typeFilter, load]);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function onSearch(val: string) {
     setQ(val); setPage(1);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => load(testament, 1, val), 300);
+    searchTimer.current = setTimeout(() => load(testament, 1, val, typeFilter), 300);
   }
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -493,11 +519,12 @@ function DictionaryView({ label, onBack }: { label: string; onBack: () => void }
   return (
     <div className="min-h-screen bg-[#0d0d0d] flex flex-col">
       {/* Header */}
-      <div className="border-b border-[#1e1e1e] px-6 py-3 flex items-center gap-4 bg-[#0a0a0a]">
-        <button onClick={onBack} className="text-[#555] hover:text-[#aaa] text-sm transition-colors">← Back</button>
-        <h1 className="text-sm font-semibold text-[#e5e5e5]">{label}</h1>
+      <div className="border-b border-[#1e1e1e] px-6 py-3 flex items-center gap-3 bg-[#0a0a0a] flex-wrap">
+        <button onClick={onBack} className="text-[#555] hover:text-[#aaa] text-sm transition-colors flex-shrink-0">← Back</button>
+        <h1 className="text-sm font-semibold text-[#e5e5e5] flex-shrink-0">{label}</h1>
+
         {/* Testament toggle */}
-        <div className="flex items-center gap-0.5 bg-[#141414] border border-[#2a2a2a] rounded p-0.5 ml-2">
+        <div className="flex items-center gap-0.5 bg-[#141414] border border-[#2a2a2a] rounded p-0.5 flex-shrink-0">
           {(['OLD', 'NEW'] as Testament[]).map(t => (
             <button key={t} onClick={() => { setTestament(t); setPage(1); }}
               className={`text-[10px] px-3 py-1 rounded transition-colors ${testament === t ? 'bg-amber-600 text-white' : 'text-[#666] hover:text-[#aaa]'}`}>
@@ -505,27 +532,50 @@ function DictionaryView({ label, onBack }: { label: string; onBack: () => void }
             </button>
           ))}
         </div>
+
         {/* Search */}
         <input value={q} onChange={e => onSearch(e.target.value)} placeholder="Search words…"
-          className="bg-[#141414] border border-[#2a2a2a] rounded text-xs text-[#ccc] placeholder-[#444] px-3 py-1.5 focus:outline-none focus:border-violet-500/60 w-48" />
-        <div className="ml-auto flex items-center gap-1">
-          <button className="btn btn-ghost text-xs w-6 h-6 flex items-center justify-center disabled:opacity-30"
-            disabled={fontSize <= 10} onClick={() => setFontSize(s => Math.max(10, s - 2))} title="Decrease font size">A−</button>
-          <button className="btn btn-ghost text-xs w-6 h-6 flex items-center justify-center disabled:opacity-30"
-            disabled={fontSize >= 28} onClick={() => setFontSize(s => Math.min(28, s + 2))} title="Increase font size">A+</button>
-          <span className="text-xs text-[#555] ml-2">{total.toLocaleString()} words</span>
-        </div>
+          className="bg-[#141414] border border-[#2a2a2a] rounded text-xs text-[#ccc] placeholder-[#444] px-3 py-1.5 focus:outline-none focus:border-violet-500/60 w-44 flex-shrink-0" />
+
+        <span className="text-xs text-[#555] ml-auto flex-shrink-0">{total.toLocaleString()} words</span>
+      </div>
+
+      {/* Type filter pills */}
+      <div className="border-b border-[#161616] px-6 py-2 flex items-center gap-1.5 flex-wrap bg-[#090909]">
+        {TYPE_FILTERS.map(f => (
+          <button key={f.key}
+            onClick={() => { setTypeFilter(f.key); setPage(1); }}
+            className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${
+              typeFilter === f.key
+                ? (f.key === 'all' ? 'bg-[#2a2a2a] border-[#3a3a3a] text-[#e5e5e5]'
+                   : `${TYPE_META[f.key]?.color ?? ''} border-current`)
+                : 'border-[#222] text-[#555] hover:text-[#888] hover:border-[#333]'
+            }`}>
+            {f.key !== 'all' && typeFilter === f.key && (
+              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${TYPE_META[f.key]?.dot ?? ''}`} />
+            )}
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {/* Word list */}
-      <div className="flex-1 px-6 py-4 overflow-y-auto">
+      <div className="flex-1 px-6 py-3 overflow-y-auto">
         {loading ? (
           <p className="text-[#555] text-sm text-center py-12">Loading…</p>
+        ) : words.length === 0 ? (
+          <p className="text-[#555] text-sm text-center py-12">No words found.</p>
         ) : (
-          <ul className="divide-y divide-[#161616]">
+          <ul className="divide-y divide-[#141414]">
             {words.map(w => (
-              <li key={w.dict_id} className="py-1.5 font-mono text-[#bbb] hover:text-[#e5e5e5] transition-colors" style={{ fontSize }}>
-                {w.word}
+              <li key={w.dict_id} className="py-2.5">
+                <div className="flex items-center gap-2.5 mb-1">
+                  <span className="font-mono text-sm text-[#d0d0d0]">{w.word}</span>
+                  <TypeBadge type={w.word_type} />
+                </div>
+                {w.definition && (
+                  <p className="text-xs text-[#888] leading-relaxed max-w-3xl">{w.definition}</p>
+                )}
               </li>
             ))}
           </ul>
@@ -550,7 +600,7 @@ function DictionaryView({ label, onBack }: { label: string; onBack: () => void }
 
 type CloudWord = { text: string; count: number; x?: number; y?: number; rotate?: number; size?: number };
 
-function WordCloudView({ label, onBack }: { label: string; onBack: () => void }) {
+function WordCloudView({ label, version, onBack }: { label: string; version: 'kjv' | 'modern'; onBack: () => void }) {
   const [testament, setTestament]   = useState<Testament>('OLD');
   const [words, setWords]           = useState<{ word: string; count: number }[]>([]);
   const [loading, setLoading]       = useState(false);
@@ -562,7 +612,7 @@ function WordCloudView({ label, onBack }: { label: string; onBack: () => void })
 
   const load = useCallback((t: Testament) => {
     setLoading(true);
-    fetch(`/api/wordcloud?testament=${t}&limit=300`)
+    fetch(`/api/wordcloud?version=${version}&testament=${t}&limit=300`)
       .then(r => r.json())
       .then(d => { if (d.success) setWords(d.words); })
       .finally(() => setLoading(false));

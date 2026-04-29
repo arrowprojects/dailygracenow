@@ -49,7 +49,7 @@
     @apply block text-xs font-medium text-[#aaa] mb-1.5 uppercase tracking-wide;
   }
 
-  /* Verse number accent — amber/gold for Daily Jesus */
+  /* Verse number accent — amber/gold for Daily Grace Now */
   .verse-number {
     @apply text-amber-400 text-xs font-semibold mr-2 select-none;
   }
