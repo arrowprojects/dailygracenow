@@ -6,6 +6,31 @@ import type { Book, Chapter, VerseWithRef, RandomVerse } from '@/lib/database';
 
 type View = 'hero' | 'reader' | 'dict-kjv' | 'dict-modern' | 'cloud-kjv' | 'cloud-modern';
 type ViewMode = 'kjv' | 'modern' | 'both';
+
+const FONTS: { label: string; value: string; style?: string }[] = [
+  // ── Top picks for scripture reading ──────────────────────────────────────
+  { label: 'Lora',               value: "'Lora', Georgia, serif" },
+  { label: 'Crimson Pro',        value: "'Crimson Pro', Garamond, Georgia, serif" },
+  { label: 'Cormorant Garamond', value: "'Cormorant Garamond', Garamond, Georgia, serif" },
+  { label: 'EB Garamond',        value: "'EB Garamond', Garamond, Georgia, serif" },
+  { label: 'Gentium',            value: "'Gentium Book Plus', Georgia, serif" },
+  { label: 'Vollkorn',           value: "'Vollkorn', Georgia, serif" },
+  // ── Classic / editorial serifs ────────────────────────────────────────────
+  { label: 'Merriweather',       value: "'Merriweather', Georgia, serif" },
+  { label: 'Playfair Display',   value: "'Playfair Display', Georgia, serif" },
+  { label: 'Libre Baskerville',  value: "'Libre Baskerville', Georgia, serif" },
+  { label: 'Source Serif 4',     value: "'Source Serif 4', Georgia, serif" },
+  { label: 'Georgia',            value: 'Georgia, serif' },
+  // ── Decorative / historical ───────────────────────────────────────────────
+  { label: 'Cinzel',             value: "'Cinzel', 'Times New Roman', serif" },
+  { label: 'Blackletter',        value: "'UnifrakturMaguntia', cursive" },
+  // ── Sans / modern ─────────────────────────────────────────────────────────
+  { label: 'Inter',              value: "'Inter', system-ui, sans-serif" },
+  { label: 'Noto Sans',          value: "'Noto Sans', system-ui, sans-serif" },
+  { label: 'System',             value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" },
+  // ── Monospace ─────────────────────────────────────────────────────────────
+  { label: 'Mono',               value: "'Courier New', monospace" },
+];
 type Testament = 'OLD' | 'NEW';
 
 interface SearchResult {
@@ -33,6 +58,7 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
   const [verses, setVerses] = useState<VerseWithRef[]>(initialVerses);
   const [loading, setLoading] = useState(false);
   const [fontSize, setFontSize] = useState(16);
+  const [fontFamily, setFontFamily] = useState(FONTS[1].value); // Lora default
   const [viewMode, setViewMode] = useState<ViewMode>('kjv');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,7 +194,7 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
           <h1 className="text-4xl font-bold text-violet-400 tracking-tight">Daily Grace Now</h1>
           {heroVerse ? (
             <blockquote className="space-y-4">
-              <p className="text-xl text-[#e5e5e5] leading-relaxed italic">
+              <p className="text-xl text-[#e5e5e5] leading-relaxed italic" style={{ fontFamily }}>
                 &ldquo;{heroVerse.text}&rdquo;
               </p>
               <footer className="text-amber-400 font-semibold text-sm">
@@ -365,6 +391,16 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
             >
               A+
             </button>
+            <select
+              value={fontFamily}
+              onChange={e => setFontFamily(e.target.value)}
+              title="Font family"
+              className="bg-[#141414] border border-[#2a2a2a] rounded text-xs text-[#ccc] px-2 py-1 focus:outline-none focus:border-violet-500/60 cursor-pointer"
+            >
+              {FONTS.map(f => (
+                <option key={f.label} value={f.value}>{f.label}</option>
+              ))}
+            </select>
             <button
               className="btn btn-ghost text-xs disabled:opacity-30"
               disabled={currentChapterIndex >= chapters.length - 1}
@@ -390,11 +426,11 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
               </div>
               {verses.map(v => (
                 <div id={`verse-${v.id}`} key={v.id} className="grid grid-cols-2 gap-6 mb-4">
-                  <p className="leading-relaxed text-[#d0d0d0]" style={{ fontSize }}>
+                  <p className="leading-relaxed text-[#d0d0d0]" style={{ fontSize, fontFamily }}>
                     <span className="verse-number">{v.verse_number}</span>
                     {v.text}
                   </p>
-                  <p className="leading-relaxed" style={{ fontSize }}>
+                  <p className="leading-relaxed" style={{ fontSize, fontFamily }}>
                     <span className="verse-number">{v.verse_number}</span>
                     {v.modern_text
                       ? <span className="text-[#d0d0d0]">{v.modern_text}</span>
@@ -406,7 +442,7 @@ export default function AppShell({ initialBooks, initialChapters, initialVerses,
             </>
           ) : (
             verses.map(v => (
-              <p id={`verse-${v.id}`} key={v.id} className="mb-4 leading-relaxed text-[#d0d0d0]" style={{ fontSize }}>
+              <p id={`verse-${v.id}`} key={v.id} className="mb-4 leading-relaxed text-[#d0d0d0]" style={{ fontSize, fontFamily }}>
                 <span className="verse-number">{v.verse_number}</span>
                 {viewMode === 'modern'
                   ? (v.modern_text ?? <span className="text-[#333] italic">Not yet translated</span>)
