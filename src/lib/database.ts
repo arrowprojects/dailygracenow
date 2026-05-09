@@ -28,6 +28,21 @@ pool.on('error', (err) => {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+export interface Wallpaper {
+  file_id: number;
+  file_name: string;
+  file_path: string;
+  thumb_path: string | null;
+}
+
+export interface MenuItem {
+  id: number;
+  menu_text_str: string;
+  menu_link: string | null;
+  menu_icon_url: string | null;
+  sort_order_int: number;
+}
+
 export interface Book {
   id: number;
   name: string;
@@ -126,6 +141,87 @@ export async function getChapterById(chapterId: number): Promise<(Chapter & { bo
 export async function isSeedComplete(): Promise<boolean> {
   const result = await pool.query('SELECT COUNT(*) FROM books');
   return parseInt(result.rows[0].count, 10) > 0;
+}
+
+export interface GalleryGroup {
+  task_id: number;
+  task_name: string;
+  project_id: number | null;
+  project_name: string | null;
+  img_count: number;
+  cover_id: number;
+}
+
+export interface GalleryImage {
+  file_id: number;
+  file_name: string;
+  file_path: string;
+  thumb_path: string;
+  label: string | null;
+}
+
+export async function getGalleryGroups(projectId?: number): Promise<GalleryGroup[]> {
+  const params: (string | number)[] = [];
+  const projectFilter = projectId !== undefined
+    ? `AND t.project_id = $${params.push(projectId)}`
+    : '';
+  const result = await pool.query<GalleryGroup>(
+    `SELECT t.task_id, t.task_name, t.project_id, t.project_name,
+            COUNT(cf.file_id)::int AS img_count,
+            MIN(cf.file_id) AS cover_id
+     FROM public.tasks t
+     JOIN public.site_codex_files cf ON cf.task_id = t.task_id
+     WHERE (cf.file_path LIKE '%.png' OR cf.file_path LIKE '%.jpg' OR cf.file_path LIKE '%.webp')
+       AND cf.thumb_path IS NOT NULL
+       AND cf.file_status NOT IN ('rejected', 'missing')
+       ${projectFilter}
+     GROUP BY t.task_id, t.task_name, t.project_id, t.project_name
+     HAVING COUNT(cf.file_id) >= 2
+     ORDER BY t.task_id DESC`,
+    params
+  );
+  return result.rows;
+}
+
+export async function getGalleryImages(taskId: number): Promise<GalleryImage[]> {
+  const result = await pool.query<GalleryImage>(
+    `SELECT file_id, file_name, file_path, thumb_path, label
+     FROM public.site_codex_files
+     WHERE task_id = $1
+       AND (file_path LIKE '%.png' OR file_path LIKE '%.jpg' OR file_path LIKE '%.webp')
+       AND thumb_path IS NOT NULL
+       AND file_status NOT IN ('rejected', 'missing')
+     ORDER BY file_id ASC`,
+    [taskId]
+  );
+  return result.rows;
+}
+
+export async function getWallpapers(): Promise<Wallpaper[]> {
+  const result = await pool.query<Wallpaper>(
+    `SELECT file_id, file_name, file_path, thumb_path
+     FROM public.site_codex_files
+     WHERE task_id = 1633
+       AND file_name LIKE '%_wallpaper.png'
+       AND thumb_path IS NOT NULL
+       AND file_status NOT IN ('rejected', 'missing')
+     ORDER BY file_id ASC`
+  );
+  return result.rows;
+}
+
+export async function getDgnMenuItems(): Promise<MenuItem[]> {
+  const result = await pool.query<MenuItem>(
+    `SELECT id, menu_text_str, menu_link, menu_icon_url, sort_order_int
+     FROM public.site_menu
+     WHERE site_code = 'dgn'
+       AND menu_type_str = 'header'
+       AND parent_id IS NULL
+       AND is_active_flag = true
+       AND delete_flag = 'N'
+     ORDER BY sort_order_int ASC`
+  );
+  return result.rows;
 }
 
 export default pool;
