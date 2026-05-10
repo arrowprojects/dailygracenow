@@ -1,19 +1,10 @@
 import { Pool } from 'pg';
 
-const pool = new Pool(
-  process.env.DATABASE_URL
-    ? { connectionString: process.env.DATABASE_URL }
-    : {
-        host: process.env.PGHOST ?? '/tmp',
-        port: 5432,
-        database: 'neondb',
-        user: 'jarocho',
-        password: process.env.POSTGRES_PASSWORD || undefined,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
-      }
-);
+const DATABASE_URL =
+  process.env.DATABASE_URL ??
+  'postgresql://neondb_owner:npg_GUdw3Kni9yRv@ep-fragrant-violet-apx82n9h.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require';
+
+const pool = new Pool({ connectionString: DATABASE_URL });
 
 // Belt-and-suspenders: set search_path on every new connection.
 // The DATABASE_URL should also include options=-c%20search_path%3Dp23
