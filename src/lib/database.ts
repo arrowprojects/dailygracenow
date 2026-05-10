@@ -168,6 +168,10 @@ export async function getGalleryGroups(projectId?: number): Promise<GalleryGroup
      WHERE (cf.file_path LIKE '%.png' OR cf.file_path LIKE '%.jpg' OR cf.file_path LIKE '%.webp')
        AND cf.thumb_path IS NOT NULL
        AND cf.file_status NOT IN ('rejected', 'missing')
+       AND EXISTS (
+         SELECT 1 FROM public.site_release_files rf
+         WHERE rf.source_file_id = cf.file_id AND rf.variants ? 'web_s3'
+       )
        ${projectFilter}
      GROUP BY t.task_id, t.task_name, t.project_id, t.project_name
      HAVING COUNT(cf.file_id) >= 2
@@ -185,6 +189,10 @@ export async function getGalleryImages(taskId: number): Promise<GalleryImage[]> 
        AND (file_path LIKE '%.png' OR file_path LIKE '%.jpg' OR file_path LIKE '%.webp')
        AND thumb_path IS NOT NULL
        AND file_status NOT IN ('rejected', 'missing')
+       AND EXISTS (
+         SELECT 1 FROM public.site_release_files rf
+         WHERE rf.source_file_id = file_id AND rf.variants ? 'web_s3'
+       )
      ORDER BY file_id ASC`,
     [taskId]
   );
