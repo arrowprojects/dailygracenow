@@ -124,8 +124,11 @@ export async function getRandomVerse(): Promise<RandomVerse | null> {
      FROM verses v
      JOIN chapters c ON c.id = v.chapter_id
      JOIN books b ON b.id = c.book_id
-     ORDER BY RANDOM()
-     LIMIT 1`
+     WHERE v.id = (
+       SELECT id FROM verses
+       OFFSET floor(random() * (SELECT COUNT(*) FROM verses))
+       LIMIT 1
+     )`
   );
   return result.rows[0] ?? null;
 }

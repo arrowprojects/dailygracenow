@@ -15,16 +15,16 @@ export default async function Home() {
 
   try {
     [books, heroVerse, wallpapers, menuItems, galleryGroups] = await Promise.all([
-      getAllBooks(),
-      getRandomVerse(),
-      getWallpapers(),
-      getDgnMenuItems(),
-      getGalleryGroups(23),
+      getAllBooks().catch(() => []),
+      getRandomVerse().catch(() => null),
+      getWallpapers().catch(() => []),
+      getDgnMenuItems().catch(() => []),
+      getGalleryGroups(23).catch(() => []),
     ]);
     if (books.length > 0) {
-      initialChapters = await getChaptersByBook(books[0].id);
+      initialChapters = await getChaptersByBook(books[0].id).catch(() => []);
       if (initialChapters.length > 0) {
-        initialVerses = await getVersesByChapter(initialChapters[0].id);
+        initialVerses = await getVersesByChapter(initialChapters[0].id).catch(() => []);
       }
     }
   } catch (err) {
