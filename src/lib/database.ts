@@ -2,9 +2,13 @@ import { Pool } from 'pg';
 
 const pool = new Pool(
   process.env.DATABASE_URL
-    ? { connectionString: process.env.DATABASE_URL }
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        // Neon pooler reuses connections — set search_path via options so it
+        // applies at the protocol level, not via a session SET command.
+        options: '-c search_path=p23',
+      }
     : {
-        // Prefer local socket to avoid password requirements on TCP.
         host: process.env.PGHOST ?? '/tmp',
         port: 5432,
         database: 'neondb',
@@ -13,13 +17,9 @@ const pool = new Pool(
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
+        options: '-c search_path=p23',
       }
 );
-
-// Set search_path to p23 on every new connection so all queries target this schema.
-pool.on('connect', (client) => {
-  client.query('SET search_path TO p23').catch(console.error);
-});
 
 pool.on('error', (err) => {
   console.error('Unexpected database error:', err);
