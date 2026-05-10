@@ -15,11 +15,6 @@ const pool = new Pool(
       }
 );
 
-// Set search_path to p23 on every new connection.
-pool.on('connect', (client) => {
-  client.query('SET search_path TO p23').catch(console.error);
-});
-
 pool.on('error', (err) => {
   console.error('Unexpected database error:', err);
   process.exit(-1);
