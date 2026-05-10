@@ -7,6 +7,7 @@ export async function GET() {
   const results: Record<string, unknown> = {
     DATABASE_URL_SET: !!process.env.DATABASE_URL,
     DATABASE_URL_HOST: process.env.DATABASE_URL?.split('@')[1]?.split('/')[0] ?? 'not set',
+    build_ts: new Date().toISOString(),
   };
 
   try {
