@@ -201,8 +201,11 @@ export async function getWallpapers(): Promise<Wallpaper[]> {
   const result = await pool.query<Wallpaper>(
     `SELECT file_id, file_name, file_path, thumb_path
      FROM public.site_codex_files
-     WHERE task_id = 1633
-       AND file_name LIKE '%_wallpaper.png'
+     WHERE (
+       (task_id = 1633 AND file_name LIKE '%_wallpaper.png')
+       OR
+       (task_id = 1748 AND file_path LIKE '%.png')
+     )
        AND thumb_path IS NOT NULL
        AND file_status NOT IN ('rejected', 'missing')
      ORDER BY file_id ASC`
