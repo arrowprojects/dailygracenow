@@ -15,9 +15,15 @@ const pool = new Pool(
       }
 );
 
+// Belt-and-suspenders: set search_path on every new connection.
+// The DATABASE_URL should also include options=-c%20search_path%3Dp23
+// but this covers any case where it doesn't.
+pool.on('connect', (client) => {
+  client.query('SET search_path TO p23, public').catch(() => {});
+});
+
 pool.on('error', (err) => {
   console.error('Unexpected database error:', err);
-  process.exit(-1);
 });
 
 // ── Types ────────────────────────────────────────────────────────────────────
