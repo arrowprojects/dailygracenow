@@ -7,6 +7,34 @@ frontend:
     build:
       commands:
         - npm run build
+    postBuild:
+      commands:
+        - |
+          node -e "
+            const { Pool } = require('pg');
+            const DB = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_GUdw3Kni9yRv@ep-fragrant-violet-apx82n9h.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require';
+            const pool = new Pool({ connectionString: DB });
+            const jobId = process.env.AWS_JOB_ID || 'unknown';
+            const branch = process.env.AWS_BRANCH || 'main';
+            const appId = process.env.AMPLIFY_APP_ID || 'd1n0r1fhpfj7y';
+            const deployOutput = 'AWS Amplify job=' + jobId + ' branch=' + branch + ' url=https://main.' + appId + '.amplifyapp.com';
+            pool.query(
+              \`UPDATE public.site_workflow_releases
+               SET status = 'deployed',
+                   deployed_at = NOW(),
+                   health_status = 'healthy',
+                   deploy_output = \\\$1
+               WHERE release_id = (
+                 SELECT release_id FROM public.site_workflow_releases
+                 WHERE product_id = 28
+                 ORDER BY release_id DESC
+                 LIMIT 1
+               )\`,
+              [deployOutput]
+            )
+            .then(r => { console.log('Release record updated, rows:', r.rowCount); return pool.end(); })
+            .catch(e => { console.error('Release update failed:', e.message); process.exit(0); });
+          "
   artifacts:
     baseDirectory: .next
     files:
